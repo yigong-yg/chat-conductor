@@ -27,6 +27,13 @@ share/python-wheels/
 MANIFEST
 docs/
 
+# Local claude.ai exports are sensitive. Keep the folder shape, never the data.
+input/**
+!input/.gitkeep
+
+# Local derived index cache. Regenerable and contains sensitive chat text.
+.chat-conductor/
+
 # PyInstaller
 #   Usually these files are written by a python script from a template
 #   before PyInstaller builds the exe, so as to inject date/other infos into it.

@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chat-conductor"
+version = "0.1.0"
+description = "Local Claude export search and recall tools."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+
+[project.scripts]
+chat-conductor = "chat_conductor.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

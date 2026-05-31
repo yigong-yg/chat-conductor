@@ -6,6 +6,8 @@ import unittest
 import zipfile
 from pathlib import Path
 
+import _path  # noqa: F401
+
 from chat_conductor.export import conversations_json_from_export
 from chat_conductor.indexer import index_export
 from chat_conductor.store import connect, init_schema, search, status

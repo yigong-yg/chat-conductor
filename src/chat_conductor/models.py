@@ -46,3 +46,16 @@ class SearchResult:
     date: str
     role: str
     turn_id: str
+    ordinal: int
+
+
+@dataclass(frozen=True)
+class StoredTurn:
+    turn_id: str
+    conv_uuid: str
+    conv_title: str
+    ts: str
+    ordinal: int
+    human_text: str
+    assistant_text: str
+    full_text: str

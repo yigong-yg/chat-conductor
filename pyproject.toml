@@ -9,6 +9,9 @@ description = "Local Claude export search and recall tools."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
+dependencies = [
+  "mcp>=1.27.2",
+]
 
 [project.scripts]
 chat-conductor = "chat_conductor.cli:main"

@@ -6,7 +6,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-from .models import IndexStats, SearchResult, Turn
+from .models import IndexStats, SearchResult, StoredTurn, Turn
 from .text import build_fts_match, escape_like, split_query_terms
 
 SCHEMA_VERSION = "1"
@@ -201,7 +201,8 @@ def search(
             t.conv_uuid,
             t.conv_title,
             t.ts AS date,
-            t.turn_id
+            t.turn_id,
+            t.ordinal
         FROM {from_clause}
         WHERE {" AND ".join(clauses)}
         ORDER BY {order_clause}
@@ -218,6 +219,47 @@ def search(
             date=row["date"],
             role=provenance_role,
             turn_id=row["turn_id"],
+            ordinal=int(row["ordinal"]),
+        )
+        for row in rows
+    ]
+
+
+def fetch_turn_window(
+    connection: sqlite3.Connection,
+    conv_uuid: str,
+    center_ordinal: int,
+    radius: int,
+) -> list[StoredTurn]:
+    rows = connection.execute(
+        """
+        SELECT
+            turn_id,
+            conv_uuid,
+            conv_title,
+            ts,
+            ordinal,
+            human_text,
+            assistant_text,
+            full_text
+        FROM turns
+        WHERE active = 1
+          AND conv_uuid = ?
+          AND ordinal BETWEEN ? AND ?
+        ORDER BY ordinal
+        """,
+        (conv_uuid, center_ordinal - radius, center_ordinal + radius),
+    ).fetchall()
+    return [
+        StoredTurn(
+            turn_id=row["turn_id"],
+            conv_uuid=row["conv_uuid"],
+            conv_title=row["conv_title"],
+            ts=row["ts"],
+            ordinal=int(row["ordinal"]),
+            human_text=row["human_text"],
+            assistant_text=row["assistant_text"],
+            full_text=row["full_text"],
         )
         for row in rows
     ]

@@ -142,18 +142,11 @@ class IndexSearchTests(unittest.TestCase):
             finally:
                 connection.close()
 
-    def test_message_set_change_currently_orphans_old_turn(self) -> None:
-        # CHARACTERIZATION of MAJOR #2 (spec §10 turn-boundary supersede). When a
-        # turn's message SET changes — e.g. the assistant reply is regenerated and
-        # gets a NEW uuid — the turn's source_key changes, so upsert_turn cannot
-        # match the old active row and APPENDS a new turn, leaving the old one
-        # active=1. Two active turns then represent one logical position; a
-        # re-export duplicates instead of superseding.
-        #
-        # This pins the CURRENT (buggy) behavior as a tripwire. DESIRED post-fix:
-        # active_turns == 1 and a search for the stale reply returns 0. The fix
-        # shape (overlap-deactivate vs position-key) is deferred pending confirmed
-        # real regen behavior — when fixed, flip the assertions below.
+    def test_message_set_change_supersedes_old_turn(self) -> None:
+        # MAJOR #2 regression lock. A regenerated assistant reply gets a new
+        # message uuid, which changes the turn source_key even though the human
+        # message overlaps the previous logical turn. The stale active turn must
+        # be deactivated instead of orphaned.
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             export_dir = root / "export"
@@ -178,15 +171,58 @@ class IndexSearchTests(unittest.TestCase):
             _write_export(export_dir, v1)
             index_export(export_dir, index_path)
             _write_export(export_dir, v2)
-            index_export(export_dir, index_path)
+            second = index_export(export_dir, index_path)
+
+            self.assertEqual(second.superseded, 1)
 
             connection = connect(index_path)
             init_schema(connection)
             try:
-                # CURRENT behavior: regenerated turn appended, old left active.
-                self.assertEqual(status(connection)["active_turns"], 2)
-                self.assertEqual(len(search(connection, "alpha", limit=5)), 1)
+                self.assertEqual(status(connection)["active_turns"], 1)
+                self.assertEqual(status(connection)["superseded_turns"], 1)
+                self.assertEqual(len(search(connection, "alpha", limit=5)), 0)
                 self.assertEqual(len(search(connection, "beta", limit=5)), 1)
+            finally:
+                connection.close()
+
+    def test_trailing_human_merge_supersedes_old_unpaired_turn(self) -> None:
+        # A re-export can turn a formerly trailing human-only turn into a
+        # human+assistant turn. The message-set overlap should retire the old
+        # unpaired turn and leave only the merged boundary active.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            export_dir = root / "export"
+            export_dir.mkdir()
+            index_path = root / "index.sqlite3"
+
+            base = {
+                "uuid": "conv-y",
+                "name": "Y",
+                "created_at": "2026-05-01T00:00:00Z",
+                "updated_at": "2026-05-01T00:00:00Z",
+            }
+            v1 = [dict(base, chat_messages=[
+                _message("h1", "human", "waiting for a reply", "2026-05-01T00:00:01Z"),
+            ])]
+            v2 = [dict(base, chat_messages=[
+                _message("h1", "human", "waiting for a reply", "2026-05-01T00:00:01Z"),
+                _message("a1", "assistant", "now answered", "2026-05-01T00:00:02Z"),
+            ])]
+
+            _write_export(export_dir, v1)
+            index_export(export_dir, index_path)
+            _write_export(export_dir, v2)
+            second = index_export(export_dir, index_path)
+
+            self.assertEqual(second.superseded, 1)
+
+            connection = connect(index_path)
+            init_schema(connection)
+            try:
+                index_status = status(connection)
+                self.assertEqual(index_status["active_turns"], 1)
+                self.assertEqual(index_status["superseded_turns"], 1)
+                self.assertEqual(len(search(connection, "answered", limit=5)), 1)
             finally:
                 connection.close()
 

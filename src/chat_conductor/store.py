@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 import sys
@@ -90,6 +91,11 @@ def upsert_turn(connection: sqlite3.Connection, turn: Turn) -> str:
     if active and active["content_hash"] == turn.content_hash:
         return "skipped"
 
+    stale_ids = set()
+    if active:
+        stale_ids.add(int(active["id"]))
+    stale_ids.update(_overlapping_active_turn_ids(connection, turn))
+
     cursor = connection.execute(
         """
         INSERT INTO turns (
@@ -121,12 +127,8 @@ def upsert_turn(connection: sqlite3.Connection, turn: Turn) -> str:
         (row_id, turn.full_text, turn.human_text, turn.assistant_text),
     )
 
-    if active:
-        connection.execute(
-            "UPDATE turns SET active = 0, superseded_by = ? WHERE id = ?",
-            (row_id, active["id"]),
-        )
-        connection.execute("DELETE FROM turn_fts WHERE rowid = ?", (active["id"],))
+    if stale_ids:
+        _deactivate_turns(connection, sorted(stale_ids), row_id)
         return "superseded"
     return "appended"
 
@@ -263,3 +265,40 @@ def _fts5_trigram_available(connection: sqlite3.Connection) -> bool:
     except sqlite3.Error:
         return False
     return True
+
+
+def _overlapping_active_turn_ids(connection: sqlite3.Connection, turn: Turn) -> list[int]:
+    incoming_ids = _source_id_set(turn.source_msg_ids_json)
+    if not incoming_ids:
+        return []
+    rows = connection.execute(
+        """
+        SELECT id, source_msg_ids
+        FROM turns
+        WHERE conv_uuid = ? AND active = 1 AND source_key <> ?
+        """,
+        (turn.conv_uuid, turn.source_key),
+    ).fetchall()
+    return [
+        int(row["id"])
+        for row in rows
+        if incoming_ids.intersection(_source_id_set(row["source_msg_ids"]))
+    ]
+
+
+def _deactivate_turns(connection: sqlite3.Connection, stale_ids: list[int], superseded_by: int) -> None:
+    for stale_id in stale_ids:
+        connection.execute(
+            "UPDATE turns SET active = 0, superseded_by = ? WHERE id = ?",
+            (superseded_by, stale_id),
+        )
+        connection.execute("DELETE FROM turn_fts WHERE rowid = ?", (stale_id,))
+
+
+def _source_id_set(source_msg_ids_json: str) -> set[tuple[str, str]]:
+    raw = json.loads(source_msg_ids_json)
+    return {
+        (str(item[0]), str(item[1]))
+        for item in raw
+        if isinstance(item, list) and len(item) == 2
+    }

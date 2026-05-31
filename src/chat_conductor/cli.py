@@ -6,6 +6,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from .indexer import index_export
+from .evaluator import load_eval_cases, report_to_dict, run_eval
 from .rehearse import DEFAULT_REHEARSE_BUDGET, DEFAULT_REHEARSE_LIMIT, DEFAULT_NEIGHBOR_RADIUS, rehearse
 from .server import run_server
 from .store import connect, default_index_path, init_schema, search, status
@@ -49,6 +50,10 @@ def main(argv: list[str] | None = None) -> int:
         choices=["stdio", "sse", "streamable-http"],
         default="stdio",
     )
+
+    eval_parser = subparsers.add_parser("eval", help="Run a recall@k eval file.")
+    eval_parser.add_argument("cases", type=Path)
+    eval_parser.add_argument("--k", type=int, default=10)
 
     subparsers.add_parser("status", help="Show index status.")
 
@@ -100,6 +105,11 @@ def main(argv: list[str] | None = None) -> int:
                     conv=args.conv,
                 )
             )
+            return 0
+        if args.command == "eval":
+            cases = load_eval_cases(args.cases)
+            report = run_eval(connection, cases, default_k=args.k)
+            print(json.dumps(report_to_dict(report), ensure_ascii=False, indent=2))
             return 0
     finally:
         connection.close()

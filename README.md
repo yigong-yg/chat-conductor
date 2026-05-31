@@ -8,6 +8,7 @@ $env:PYTHONPATH = "src"
 .\.venv\Scripts\python.exe -m chat_conductor index input\data-...
 .\.venv\Scripts\python.exe -m chat_conductor search "MCP" --limit 5
 .\.venv\Scripts\python.exe -m chat_conductor rehearse "MCP"
+.\.venv\Scripts\python.exe -m chat_conductor eval path\to\cases.json --k 10
 .\.venv\Scripts\python.exe -m chat_conductor serve
 .\.venv\Scripts\python.exe -m chat_conductor status
 ```
@@ -23,4 +24,9 @@ both contain sensitive chat data or derived sensitive text.
 few coherent windows under a shared 2,400-token default budget. On the current
 real index, that budget fits roughly 1-2 full recall windows for common technical
 queries without truncation.
+
+`eval` accepts JSON or JSONL cases shaped like
+`{"query": "...", "expected_turn_id": "turn_...", "k": 10}`. Real eval files can
+contain private derived identifiers or revealing query choices; keep them local
+with `eval/*.private.json`, `eval/*.local.json`, or `.eval/`.
 

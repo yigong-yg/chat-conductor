@@ -9,7 +9,7 @@ from pathlib import Path
 import _path  # noqa: F401
 
 from chat_conductor.export import conversations_json_from_export
-from chat_conductor.indexer import index_export
+from chat_conductor.indexer import index_export, index_source
 from chat_conductor.store import connect, init_schema, search, status
 
 
@@ -55,7 +55,10 @@ class IndexSearchTests(unittest.TestCase):
                 content_block = search(connection, "content", role="human")
                 self.assertEqual(len(content_block), 1)
                 self.assertIn("content block text", content_block[0].text)
-                self.assertEqual(status(connection)["active_turns"], 4)
+                index_status = status(connection)
+                self.assertEqual(index_status["schema_version"], "2")
+                self.assertEqual(index_status["active_turns"], 4)
+                self.assertEqual(index_status["sources"], 1)
             finally:
                 connection.close()
 
@@ -103,6 +106,67 @@ class IndexSearchTests(unittest.TestCase):
 
             stats = index_export(zip_path, root / "index.sqlite3")
             self.assertEqual(stats.appended, 4)
+
+    def test_auto_detects_wechat_jsonl_and_indexes_text_segments(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            wechat_dir = root / "wechat"
+            texts_dir = wechat_dir / "texts"
+            texts_dir.mkdir(parents=True)
+            records = [
+                {"_type": "header", "meta": {"name": "Synthetic WeChat"}},
+                {"_type": "member", "platformId": "wxid_a", "accountName": "Alice", "avatar": ""},
+                {
+                    "_type": "message",
+                    "sender": "wxid_a",
+                    "accountName": "Alice",
+                    "timestamp": 1778812851,
+                    "type": 0,
+                    "content": "wechat needle alpha",
+                    "platformMessageId": "m1",
+                },
+                {
+                    "_type": "message",
+                    "sender": "wxid_b",
+                    "accountName": "Bob",
+                    "timestamp": 1778812860,
+                    "type": 0,
+                    "content": "wechat response beta",
+                    "platformMessageId": "m2",
+                },
+                {
+                    "_type": "message",
+                    "sender": "wxid_a",
+                    "accountName": "Alice",
+                    "timestamp": 1778814000,
+                    "type": 0,
+                    "content": "second segment gamma",
+                    "platformMessageId": "m3",
+                },
+            ]
+            (texts_dir / "chat.jsonl").write_text(
+                "\n".join(json.dumps(record, ensure_ascii=False) for record in records),
+                encoding="utf-8",
+            )
+            index_path = root / "wechat.sqlite3"
+
+            stats = index_source(wechat_dir, index_path)
+
+            self.assertEqual(stats.conversations, 1)
+            self.assertEqual(stats.messages, 3)
+            self.assertEqual(stats.appended, 2)
+
+            connection = connect(index_path)
+            init_schema(connection)
+            try:
+                results = search(connection, "needle", limit=5)
+                self.assertEqual(len(results), 1)
+                self.assertEqual(results[0].source, "wechat")
+                self.assertEqual(results[0].conv_title, "Synthetic WeChat")
+                self.assertIn("wechat needle alpha", results[0].text)
+                self.assertEqual(status(connection)["sources"], 1)
+            finally:
+                connection.close()
 
     def test_short_and_cjk_terms_are_searchable(self) -> None:
         # MAJOR #1 regression lock. FTS5 trigram returns nothing for terms shorter

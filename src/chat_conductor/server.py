@@ -16,7 +16,7 @@ MCP_TOOL_NAMES = ("search", "search_chat_history")
 def create_mcp_server(index_path: Path) -> FastMCP:
     server = FastMCP("chat-conductor")
 
-    @server.tool(name="search", description="Search archived Claude conversation turns.")
+    @server.tool(name="search", description="Search archived chat segments.")
     def search_tool(
         query: str,
         limit: int = 10,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 
 import sqlite3
@@ -54,7 +55,7 @@ def build_windows(
     for hit in hits:
         if hit.turn_id in covered_turn_ids:
             continue
-        turns = fetch_turn_window(connection, hit.conv_uuid, hit.ordinal, neighbor_radius)
+        turns = fetch_turn_window(connection, hit.conv_uuid, hit.ordinal, neighbor_radius, source=hit.source)
         if not turns:
             continue
         windows.append(RecallWindow(hit=hit, turns=turns))
@@ -98,12 +99,15 @@ def format_window(window: RecallWindow) -> str:
     ]
     for turn in window.turns:
         lines.append(f"[turn {turn.ordinal} | {turn.ts} | {turn.turn_id}]")
-        if turn.human_text:
-            lines.append("Human:")
-            lines.append(turn.human_text)
-        if turn.assistant_text:
-            lines.append("Assistant:")
-            lines.append(turn.assistant_text)
+        if turn.source == "claude":
+            if turn.human_text:
+                lines.append("Human:")
+                lines.append(turn.human_text)
+            if turn.assistant_text:
+                lines.append("Assistant:")
+                lines.append(turn.assistant_text)
+        else:
+            lines.extend(_format_speaker_spans(turn))
     lines.append("--- end archived view ---")
     return "\n".join(lines)
 
@@ -113,9 +117,25 @@ def estimate_tokens(text: str) -> int:
 
 
 def _trim_window_to_budget(window: RecallWindow, token_budget: int) -> RecallWindow:
-    # Fallback for one enormous turn: keep provenance and the matched turn, clipped
-    # by the same rough token estimator used by the packer.
     center = next((turn for turn in window.turns if turn.turn_id == window.hit.turn_id), window.turns[0])
+    max_chars = max(token_budget * 4, 120)
+    if center.source != "claude":
+        clipped = _clip(center.full_text, max_chars)
+        trimmed = StoredTurn(
+            turn_id=center.turn_id,
+            conv_uuid=center.conv_uuid,
+            conv_title=center.conv_title,
+            ts=center.ts,
+            ordinal=center.ordinal,
+            human_text="",
+            assistant_text="",
+            full_text=clipped,
+            source=center.source,
+            source_id=center.source_id,
+            speaker_spans_json="",
+        )
+        return RecallWindow(hit=window.hit, turns=[trimmed])
+
     max_chars = max(token_budget * 4, 120)
     human_text = _clip(center.human_text, max_chars // 2)
     assistant_text = _clip(center.assistant_text, max_chars // 2)
@@ -128,8 +148,35 @@ def _trim_window_to_budget(window: RecallWindow, token_budget: int) -> RecallWin
         human_text=human_text,
         assistant_text=assistant_text,
         full_text="\n\n".join(part for part in (human_text, assistant_text) if part),
+        source=center.source,
+        source_id=center.source_id,
+        speaker_spans_json=center.speaker_spans_json,
     )
     return RecallWindow(hit=window.hit, turns=[trimmed])
+
+
+def _format_speaker_spans(turn: StoredTurn) -> list[str]:
+    if not turn.speaker_spans_json:
+        return [turn.full_text] if turn.full_text else []
+    try:
+        raw_spans = json.loads(turn.speaker_spans_json)
+    except json.JSONDecodeError:
+        return [turn.full_text] if turn.full_text else []
+    lines: list[str] = []
+    if not isinstance(raw_spans, list):
+        return [turn.full_text] if turn.full_text else []
+    for raw in raw_spans:
+        if not isinstance(raw, dict):
+            continue
+        text = raw.get("text")
+        if not isinstance(text, str) or not text:
+            continue
+        name = raw.get("speaker_name") or raw.get("speaker_id") or "speaker"
+        lines.append(f"{name}:")
+        lines.append(text)
+    if not lines and turn.full_text:
+        return [turn.full_text]
+    return lines
 
 
 def _clip(text: str, max_chars: int) -> str:

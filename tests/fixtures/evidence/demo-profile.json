@@ -1,0 +1,15 @@
+{
+  "profile_format": "chat-evidence-profile",
+  "profile_version": 1,
+  "adapter": "synthetic-fixture",
+  "adapter_version": "1",
+  "platform": "synthetic",
+  "account_key": "demo-account",
+  "source_timezone": "Asia/Shanghai",
+  "order_policy": "native",
+  "senders": {
+    "ana": "s_ana",
+    "ben": "s_ben",
+    "chen": "s_chen"
+  }
+}

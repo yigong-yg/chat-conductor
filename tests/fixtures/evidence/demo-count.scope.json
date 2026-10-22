@@ -1,0 +1,8 @@
+{
+  "definition": "Exported text messages from sender s_ana in conv-garden whose text contains the literal 'water' (ASCII letters case-insensitive).",
+  "unit": "exported message records",
+  "filters": "source synthetic:demo-account; conversation conv-garden; sender s_ana; placeholders excluded",
+  "period": "local dates 2026-03-01 through 2026-03-03 inclusive, as the half-open interval [2026-03-01, 2026-03-04)",
+  "timezone": "Asia/Shanghai",
+  "missing_data": "Counts only messages present in the imported synthetic export at the pinned revision; messages missing from the export are not counted and a count is not a number of real watering events."
+}

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Chat Evidence report draft v0",
+  "description": "Structure only. Requires semantic verification against the pinned dataset and tool-owned receipts before rendering.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dataset_id", "run_id", "corpus_revision", "question", "claims"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "dataset_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "pattern": "^run_[a-zA-Z0-9_-]+$"},
+    "corpus_revision": {"type": "integer", "minimum": 0},
+    "question": {"type": "string", "minLength": 1},
+    "claims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"oneOf": [
+        {"$ref": "#/$defs/quote"},
+        {"$ref": "#/$defs/statistic"},
+        {"$ref": "#/$defs/not_found"}
+      ]}
+    }
+  },
+  "$defs": {
+    "claim_id": {"type": "string", "pattern": "^c_[a-zA-Z0-9_-]+$"},
+    "receipt_id": {"type": "string", "pattern": "^q_[a-zA-Z0-9_-]+$"},
+    "message_id": {"type": "string", "pattern": "^m_[0-9a-f]{64}$"},
+    "scalar": {"type": ["string", "number", "boolean", "null"]},
+    "quote": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "message_id", "sender_id", "ts_utc", "start", "end", "text", "context_receipt_id"],
+      "properties": {
+        "id": {"$ref": "#/$defs/claim_id"},
+        "type": {"const": "quote"},
+        "message_id": {"$ref": "#/$defs/message_id"},
+        "sender_id": {"type": "string", "minLength": 1},
+        "ts_utc": {"type": "string", "minLength": 1},
+        "start": {"type": "integer", "minimum": 0},
+        "end": {"type": "integer", "minimum": 1},
+        "text": {"type": "string", "minLength": 1},
+        "context_receipt_id": {"$ref": "#/$defs/receipt_id"}
+      }
+    },
+    "statistic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "receipt_id", "row", "column", "value"],
+      "properties": {
+        "id": {"$ref": "#/$defs/claim_id"},
+        "type": {"const": "statistic"},
+        "receipt_id": {"$ref": "#/$defs/receipt_id"},
+        "row": {"type": "integer", "minimum": 0},
+        "column": {"type": "string", "minLength": 1},
+        "value": {"$ref": "#/$defs/scalar"}
+      }
+    },
+    "not_found": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "receipt_ids"],
+      "properties": {
+        "id": {"$ref": "#/$defs/claim_id"},
+        "type": {"const": "not_found"},
+        "receipt_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/receipt_id"}
+        }
+      }
+    }
+  }
+}

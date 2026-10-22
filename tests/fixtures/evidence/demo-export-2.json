@@ -1,0 +1,84 @@
+{
+  "format": "chat-evidence-synthetic-fixture",
+  "format_version": 1,
+  "synthetic": true,
+  "conversations": [
+    {
+      "conversation_id": "conv-garden",
+      "messages": [
+        {
+          "native_id": "g-0041",
+          "sender": "ben",
+          "ts": "2026-03-03T09:10:00",
+          "order": "000041",
+          "kind": "text",
+          "text": "I'll pick it up."
+        },
+        {
+          "native_id": "g-0042",
+          "sender": "ana",
+          "ts": "2026-03-03T09:20:00",
+          "order": "000042",
+          "kind": "text",
+          "text": "Remember: shed key with Ben."
+        },
+        {
+          "native_id": "g-0043",
+          "sender": "chen",
+          "ts": "2026-03-03T10:00:00",
+          "order": "000043",
+          "kind": "text",
+          "text": "👍"
+        },
+        {
+          "native_id": "g-0044",
+          "sender": "ben",
+          "ts": "2026-03-03T10:30:00",
+          "order": "000044",
+          "kind": "text",
+          "text": "See you Thursday."
+        },
+        {
+          "native_id": "g-0045",
+          "sender": "ana",
+          "ts": "2026-03-03T10:31:00",
+          "order": "000045",
+          "kind": "text",
+          "text": "See you!"
+        },
+        {
+          "native_id": "g-0046",
+          "sender": "chen",
+          "ts": "2026-03-05T09:00:00",
+          "order": "000046",
+          "kind": "text",
+          "text": "Seed order picked up. Watering done."
+        },
+        {
+          "native_id": "g-0047",
+          "sender": "ana",
+          "ts": "2026-03-05T09:05:00",
+          "order": "000047",
+          "kind": "text",
+          "text": "Thanks! Watering log updated."
+        },
+        {
+          "native_id": "g-0048",
+          "sender": "ben",
+          "ts": "2026-03-05T09:10:00",
+          "order": "000048",
+          "kind": "text",
+          "text": "Shed key is still with me, on the blue lanyard."
+        },
+        {
+          "native_id": "g-0049",
+          "sender": "ana",
+          "ts": "2026-03-05T09:12:00",
+          "order": "000049",
+          "kind": "text",
+          "text": "Good."
+        }
+      ]
+    }
+  ]
+}

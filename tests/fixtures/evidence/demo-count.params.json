@@ -1,0 +1,6 @@
+{
+  "source": "synthetic:demo-account",
+  "conversation": "conv-garden",
+  "sender": "s_ana",
+  "pattern": "%water%"
+}
